@@ -51,7 +51,7 @@ int main (void){
     else{
         waitpid(pid1, NULL, 0);
         waitpid(pid2, NULL, 0);
-        char ch[50];
+        char ch[18];
         printf("Começando a ler...\n");
         while (read (fpFIFO, &ch, sizeof(ch)) > 0)
         printf ("%s\n", ch);
