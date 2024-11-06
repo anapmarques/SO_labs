@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -6,10 +7,10 @@
 #include <string.h>
 
 int main() {
-    const char *filepath = "ex5.txt";
+    const char *filepath = "ex6.txt";
     const char *conteudo_adicional = "Nao sei o que nao sei que la\n";
     size_t tam_conteudo = strlen(conteudo_adicional);
-
+    
     int fd = open(filepath, O_RDWR | O_CREAT, 0666);
     if (fd == -1) {
         perror("Erro ao abrir o arquivo");
@@ -34,8 +35,9 @@ int main() {
         return 1;
     }
 
-    // Mapear o arquivo na memória com o tamanho original
-    char *mapeamento = mmap(NULL, tam_original, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    // Mapear o arquivo na memória com o tamanho original (ou 1 byte se estiver vazio)
+    size_t map_size = (tam_original > 0) ? tam_original : 1;
+    char *mapeamento = mmap(NULL, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (mapeamento == MAP_FAILED) {
         perror("Erro no mapeamento inicial do arquivo");
         close(fd);
@@ -43,7 +45,7 @@ int main() {
     }
 
     // Usar mremap para expandir o mapeamento para o novo tamanho
-    mapeamento = mremap(mapeamento, tam_original, tam_novo, 0); // Sem a flag MREMAP_MAYMOVE
+    mapeamento = mremap(mapeamento, map_size, tam_novo, MREMAP_MAYMOVE);
     if (mapeamento == MAP_FAILED) {
         perror("Erro ao expandir o mapeamento com mremap");
         close(fd);
@@ -53,7 +55,7 @@ int main() {
     // Copiar o conteúdo adicional para a nova área do mapeamento
     memcpy(mapeamento + tam_original, conteudo_adicional, tam_conteudo);
 
-    // Sincronize o mapeamento com o arquivo
+    // Sincronizar o mapeamento com o arquivo
     if (msync(mapeamento, tam_novo, MS_SYNC) == -1) {
         perror("Erro ao sincronizar o mapeamento");
     }
