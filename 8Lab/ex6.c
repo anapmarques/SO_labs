@@ -18,7 +18,7 @@ int main() {
     }
 
     // Obtenha o tamanho atual do arquivo
-    off_t tam_original = lseek(fd, 0, SEEK_END);
+    off_t tam_original = lseek(fd, 0, SEEK_END); 
     if (tam_original == -1) {
         perror("Erro ao obter o tamanho do arquivo");
         close(fd);
