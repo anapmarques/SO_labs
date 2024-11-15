@@ -7,8 +7,6 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 
-#define PAGE_SIZE 4096  // Tamanho da página de memória em bytes (típico para sistemas x86-64)
-
 void get_time_diff(struct timeval *start, struct timeval *end) {
     long seconds = end->tv_sec - start->tv_sec;
     long microseconds = end->tv_usec - start->tv_usec;
@@ -24,80 +22,80 @@ int main(int argc, char *argv[]) {
     off_t len;
     char *p;
     int fd;
-    struct timeval start, end;
+    struct timeval startMM, endMM, startES, endES;
 
     if (argc < 2) { 
         fprintf (stderr, "usage: %s <file>\n", argv[0]); 
         exit(1);
     }
 
-    fd = open (argv[1], O_RDONLY);
+    // tamanho da página do sistema
+    int page_size = sysconf(_SC_PAGESIZE);
 
+    fd = open(argv[1], O_RDONLY);
     if (fd == -1) { 
-        perror ("open"); 
+        perror("open"); 
         exit(1); 
     } 
 
-    if (fstat(fd, &sb)== -1) { 
-        perror ("fstat"); 
+    if (fstat(fd, &sb) == -1) { 
+        perror("fstat"); 
         exit(1); 
     }
 
-    if (!S_ISREG (sb.st_mode)) { 
-        fprintf (stderr, "%s is not a file\n", argv[1]); 
+    if (!S_ISREG(sb.st_mode)) { 
+        fprintf(stderr, "%s is not a file\n", argv[1]); 
         exit(1);
     }
 
-    // Verificar quantas páginas de memória o arquivo ocupa
-    int num_pages = (sb.st_size + PAGE_SIZE - 1) / PAGE_SIZE; // arredondado para cima
-    printf("O arquivo ocupa %d páginas de memória.\n", num_pages);
+    // Calcula o número de páginas necessárias para o arquivo
+    int num_pages = (sb.st_size + page_size - 1) / page_size;
 
-    // Escrever arquivo mapeado usando mmap
-    gettimeofday(&start, NULL);
+    // Mapeia o arquivo em memória
+    gettimeofday(&startMM, NULL);
 
-    p = mmap (0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
-
+    p = mmap(0, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
     if (p == MAP_FAILED) { 
-        perror ("mmap"); 
+        perror("mmap"); 
         exit(1); 
     }
 
-    if (close (fd) == -1) { 
-        perror ("close"); 
+    if (close(fd) == -1) { 
+        perror("close"); 
         exit(1); 
     }
 
     for (len = 0; len < sb.st_size; len++) 
-        putchar (p[len]);
-    
+        putchar(p[len]);
 
-    gettimeofday(&end, NULL);
-    printf("\nTempo decorrido ao escrever arquivo mapeado: ");
-    get_time_diff(&start, &end);
+    gettimeofday(&endMM, NULL);
 
-    // Liberação do mapeamento de memória
     if (munmap(p, sb.st_size) == -1) {
         perror("munmap");
         exit(1);
     }
 
-    // Escrever arquivo utilizando E/S tradicional
     fd = open(argv[1], O_RDONLY);
     if (fd == -1) {
         perror("open");
         exit(1);
     }
 
-    gettimeofday(&start, NULL);
+    // Leitura usando E/S tradicional
+    gettimeofday(&startES, NULL);
 
-    char buffer[PAGE_SIZE];
+    char buffer[page_size];
     while ((len = read(fd, buffer, sizeof(buffer))) > 0) {
         fwrite(buffer, 1, len, stdout);
     }
 
-    gettimeofday(&end, NULL);
+    gettimeofday(&endES, NULL);
+
+    printf("O arquivo ocupa %d páginas de memória.\n", num_pages);
+    printf("\nTempo decorrido ao escrever arquivo mapeado: ");
+    get_time_diff(&startMM, &endMM);
     printf("\nTempo decorrido ao escrever arquivo usando E/S: ");
-    get_time_diff(&start, &end);
+    get_time_diff(&startES, &endES);
 
     if (close(fd) == -1) {
         perror("close");
